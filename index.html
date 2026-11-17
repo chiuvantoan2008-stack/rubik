@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rubik Solver</title>
+<style>
+:root{--bg:#eef2f7;--fg:#0f1b2d;--cd:#fff;--mu:#56657d;--ac:#0b6bff;--bd:#cfd8e6;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0a111d;--fg:#e6edf8;--cd:#121c2d;--mu:#8fa0bd;--bd:#25344d}}
+:root[data-theme=dark]{--bg:#0a111d;--fg:#e6edf8;--cd:#121c2d;--mu:#8fa0bd;--bd:#25344d}
+*{box-sizing:border-box}[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:560px;margin:auto;padding:14px}
+h1{text-align:center;letter-spacing:.16em;margin:.4em 0 0;font-size:32px;background:linear-gradient(90deg,#0b6bff,#12b5a0);-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{margin:.4em 0}
+.s{display:none}.s.on{display:block}
+button,select{font:inherit;color:inherit}
+.b{display:block;width:100%;margin:8px 0;padding:14px;border:1px solid var(--bd);border-radius:12px;background:var(--cd);font-weight:600;cursor:pointer}
+.b.p{background:var(--ac);border-color:var(--ac);color:#fff}
+.row{display:flex;gap:6px;flex-wrap:wrap}.row .b{flex:1 1 30%;margin:4px 0;padding:10px}
+.cd{background:var(--cd);border:1px solid var(--bd);border-radius:12px;padding:12px;margin:10px 0}
+.mu{color:var(--mu);font-size:14px}.err{color:#e5383b}
+#msg{font-weight:600;min-height:1.5em}
+#stage{width:100%;height:min(82vw,46vh);touch-action:none;border-radius:12px;background:var(--cd);border:1px solid var(--bd);overflow:hidden}
+#stage canvas{width:100%;height:100%;display:block}
+.net{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-width:380px;margin:auto}
+.f{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
+.k{aspect-ratio:1;border:2px solid #0005;border-radius:5px;padding:0;background:#8884}
+.k.x{outline:3px solid #e5383b;z-index:1}
+.pal{display:flex;gap:8px;justify-content:center;margin:10px 0}
+.pal button{width:44px;height:44px;border-radius:50%;border:3px solid transparent;font-weight:700}
+.pal .on{border-color:var(--ac);transform:scale(1.15)}
+.chips span{display:inline-block;padding:3px 9px;margin:3px;border:1px solid var(--bd);border-radius:8px;font:600 14px monospace;cursor:pointer}
+.chips .d{opacity:.4}.chips .n{background:var(--ac);color:#fff;border-color:var(--ac)}
+#vw{position:relative;aspect-ratio:1;max-width:360px;margin:auto;background:#000;border-radius:12px;overflow:hidden}
+#vid{width:100%;height:100%;object-fit:cover}
+.g{position:absolute;inset:20%;border:2px solid #fff;background:linear-gradient(#fff,#fff) 0 33.3%/100% 2px,linear-gradient(#fff,#fff) 0 66.6%/100% 2px,linear-gradient(#fff,#fff) 33.3% 0/2px 100%,linear-gradient(#fff,#fff) 66.6% 0/2px 100%;background-repeat:no-repeat}
+details p,details li{margin:.4em 0}code{font-weight:700}
+</style></head><body><main>
+
+<section id="home" class="s on">
+<h1>RUBIK SOLVER</h1>
+<p class="mu" style="text-align:center">Giải Rubik 3x3 từng bước trên mô hình 3D</p>
+<button class="b p" onclick="solveNow()">Giải Rubik</button>
+<button class="b" onclick="go('scan')">Quét Rubik bằng camera</button>
+<button class="b" onclick="go('manual')">Nhập màu thủ công</button>
+<button class="b" onclick="go('learn')">Học cách chơi Rubik</button>
+<button class="b" onclick="go('timer')">Đồng hồ bấm giờ</button>
+<button class="b" id="res" onclick="resume()" hidden>Tiếp tục phiên giải trước</button>
+<div class="cd mu"><b>Cách dùng:</b> nhập hoặc quét đủ 6 mặt (mặt trắng ở trên, mặt xanh lá ở trước), bấm Giải, rồi xoay theo từng bước trên mô hình 3D. Dữ liệu chỉ lưu trên thiết bị của bạn.</div>
+<button class="b" onclick="wipe(this)">Xóa dữ liệu đã lưu</button>
+</section>
+
+<section id="manual" class="s">
+<button class="b" onclick="go('home')">Trang chủ</button>
+<h2>Nhập màu</h2>
+<p class="mu">Chọn màu rồi chạm vào ô. Tâm mỗi mặt cố định: trắng = trên (U), đỏ = phải (R), xanh lá = trước (F), vàng = dưới (D), cam = trái (L), xanh dương = sau (B). Số trên mỗi màu là số ô đã dùng (cần đúng 9).</p>
+<div class="pal" id="pal"></div><div class="net" id="net"></div>
+<p id="msg"></p>
+<div class="row"><button class="b" onclick="clr()">Xóa hết</button><button class="b" onclick="rst()">Về trạng thái đã giải</button><button class="b" onclick="scr()">Xáo ngẫu nhiên</button></div>
+<button class="b p" onclick="solveNow()">Kiểm tra lại và giải</button>
+</section>
+
+<section id="scan" class="s">
+<button class="b" onclick="go('home')">Trang chủ</button>
+<h2>Quét bằng camera</h2>
+<div id="vw"><video id="vid" playsinline muted></video><div class="g"></div></div>
+<p id="sh" class="mu">Camera chỉ bật khi bạn bấm nút bên dưới. Kết quả quét luôn được đưa vào bảng nhập để bạn đối chiếu và sửa.</p>
+<button class="b p" id="cap" onclick="cap()">Bật camera</button>
+<button class="b" onclick="go('manual')">Chuyển sang nhập thủ công</button>
+</section>
+
+<section id="solve" class="s">
+<button class="b" onclick="go('home')">Trang chủ</button>
+<div id="m1"><div id="stage"></div></div>
+<p class="mu" id="nf" hidden>Thiết bị không hỗ trợ 3D (WebGL). Hãy làm theo danh sách bước xoay bên dưới.</p>
+<div class="cd"><b id="cm"></b><div id="ce" class="mu"></div><div id="pg" class="mu"></div></div>
+<div class="row"><button class="b" onclick="jump(0)">Làm lại từ đầu</button><button class="b" onclick="step(-1)">Bước trước</button><button class="b p" id="pl" onclick="toggle()">Phát tự động</button><button class="b" onclick="step(1)">Bước tiếp</button><button class="b" onclick="jump(sol.length)">Hoàn thành</button></div>
+<label class="mu">Tốc độ <select id="sp"><option value="900">Chậm</option><option value="450" selected>Bình thường</option><option value="180">Nhanh</option></select></label>
+<div class="cd chips" id="ch"></div>
+<div class="cd mu">Chữ cái là mặt cần xoay: U trên, D dưới, L trái, R phải, F trước, B sau. Dấu ' là xoay ngược chiều kim đồng hồ, số 2 là xoay nửa vòng. Chạm vào một bước trong danh sách để xem trạng thái sau bước đó. Kéo để xoay mô hình, cuộn hoặc chụm hai ngón để phóng to, thu nhỏ.</div>
+</section>
+
+<section id="learn" class="s">
+<button class="b" onclick="go('home')">Trang chủ</button>
+<h2>Học cách chơi Rubik</h2>
+<div id="m2"></div>
+<div class="row" id="pr"></div>
+<label class="mu">Kiểu xoay <select id="md"><option value="">thuận (R)</option><option value="'">ngược (R')</option><option value="2">nửa vòng (R2)</option></select></label>
+<button class="b" onclick="st=mk(solved());draw()">Đặt lại mô hình</button>
+<details class="cd" open><summary><b>Cấu tạo</b></summary>
+<p>Rubik 3x3 có 6 mặt, mỗi mặt 9 ô. Có 6 viên tâm (1 màu, không đổi chỗ), 12 viên cạnh (2 màu) và 8 viên góc (3 màu). Các màu đối diện nhau: trắng và vàng, đỏ và cam, xanh lá và xanh dương.</p></details>
+<details class="cd" open><summary><b>Ký hiệu</b></summary>
+<p>U là mặt trên, D dưới, L trái, R phải, F trước, B sau. Một chữ cái là xoay mặt đó 90° theo chiều kim đồng hồ khi nhìn thẳng vào mặt. Thêm dấu ' là xoay ngược chiều. Thêm số 2 là xoay 180°.</p>
+<p><b>Bài tập 1:</b> bấm R, rồi chọn kiểu ngược và bấm R lần nữa: khối trở về như cũ. <b>Bài tập 2:</b> bấm lần lượt R, U, R', U' sáu lần liên tiếp: khối trở về nguyên trạng.</p></details>
+<details class="cd"><summary><b>Giải từng tầng</b></summary><ol>
+<li>Dấu cộng trắng: 4 cạnh trắng nằm quanh tâm trắng, mỗi cạnh khớp màu tâm bên cạnh.</li>
+<li>Góc trắng: lật mặt trắng xuống dưới. Đưa góc trắng lên ngay phía trên chỗ cần vào, lặp <code>R U R' U'</code> đến khi vào đúng chỗ.</li>
+<li>Tầng giữa (cạnh không có vàng): sang phải <code>U R U' R' U' F' U F</code>, sang trái <code>U' L' U L U F U' F'</code>.</li>
+<li>Dấu cộng vàng: <code>F R U R' U' F'</code> (hình chữ L thì <code>F U R U' R' F'</code>).</li>
+<li>Cạnh vàng đúng chỗ: <code>R U R' U R U2 R' U</code>.</li>
+<li>Góc vàng đúng chỗ: <code>U R U' L' U R' U' L</code>.</li>
+<li>Xoay góc vàng: lặp <code>R' D' R D</code> 2 hoặc 4 lần cho đến khi mặt vàng hướng lên, rồi chỉ xoay U để đưa góc kế tiếp vào vị trí.</li></ol>
+<p><b>Bài tập 3:</b> xáo trộn vài bước bằng nút xoay phía trên, rồi tự đưa khối về lại bằng các bước ngược.</p></details>
+</section>
+
+<section id="timer" class="s">
+<button class="b" onclick="go('home')">Trang chủ</button>
+<h2>Đồng hồ bấm giờ</h2>
+<div id="tm" style="font:700 64px/1.2 monospace;text-align:center">0.00</div>
+<button class="b p" id="tb" onclick="tgl()">Bắt đầu</button>
+<p class="mu" style="text-align:center">Trên máy tính có thể dùng phím cách.</p>
+<div class="cd"><div id="ts" class="mu"></div><div id="tl"></div></div>
+<button class="b" onclick="T=[];sv('rt',T);tl()">Xóa lịch sử</button>
+</section>
+</main>
+
+<script src="three.min.js"></script>
+<script src="cube.js"></script>
+<script src="solve.js"></script>
+<script>
+//<L
+const L='URFDLB',NM=['Trắng','Đỏ','Xanh lá','Vàng','Cam','Xanh dương'],N=[[0,1,0],[1,0,0],[0,0,1],[0,-1,0],[-1,0,0],[0,0,-1]],
+CF=[[8,9,20],[6,18,38],[0,36,47],[2,45,11],[29,26,15],[27,44,24],[33,53,42],[35,17,51]],CC=['URF','UFL','ULB','UBR','DFR','DLF','DBL','DRB'],
+EF=[[5,10],[7,19],[3,37],[1,46],[32,16],[28,25],[30,43],[34,52],[23,12],[21,41],[50,39],[48,14]],EC=['UR','UF','UL','UB','DR','DF','DL','DB','FR','FL','BL','BR'],
+solved=()=>Array.from({length:54},(_,k)=>k/9|0),blank=()=>solved().map((c,k)=>k%9==4?c:-1),SOLVED=[...L].map(c=>c.repeat(9)).join('');
+// Hình học: mỗi nhãn dán có vị trí p (toạ độ viên nhỏ), pháp tuyến n, màu c. Thứ tự 54 ô theo chuẩn Kociemba U R F D L B.
+function geo(f,i){const r=i/3|0,c=i%3;return[[[c-1,1,r-1],[1,1-r,1-c],[c-1,1-r,1],[c-1,-1,1-r],[-1,1-r,c-1],[1-c,1-r,-1]][f],N[f]]}
+const mk=cs=>cs.map((c,k)=>{const[p,n]=geo(k/9|0,k%9);return{p,n,c}});
+function rot(v,a,k){while(k--){const d=a[0]*v[0]+a[1]*v[1]+a[2]*v[2];v=[a[0]*d-(a[1]*v[2]-a[2]*v[1]),a[1]*d-(a[2]*v[0]-a[0]*v[2]),a[2]*d-(a[0]*v[1]-a[1]*v[0])]}return v}
+const pm=m=>[L.indexOf(m[0]),m[1]=="'"?3:m[1]=='2'?2:1],inv=m=>m[0]+(m[1]=="'"?'':m[1]=='2'?'2':"'");
+function turn(s,m){const[f,k]=pm(m),a=N[f];for(const e of s)if(e.p[0]*a[0]+e.p[1]*a[1]+e.p[2]*a[2]==1){e.p=rot(e.p,a,k);e.n=rot(e.n,a,k)}}
+function str(s){let o='';for(let f=0;f<6;f++)for(let i=0;i<9;i++){const[p,n]=geo(f,i),e=s.find(x=>x.p+''==p+''&&x.n+''==n+'');o+=L[e.c]}return o}
+function check(){const e=[],bad=new Set();cols.forEach((c,k)=>{if(c<0)bad.add(k)});const em=bad.size,s=cols.map(c=>c<0?'?':L[c]).join('');
+ if(em)e.push(`Còn ${em} ô chưa có màu (viền đỏ).`);
+ else for(let c=0;c<6;c++){const n=cols.filter(x=>x==c).length;if(n!=9){e.push(`Màu ${NM[c]} có ${n} ô, cần đúng 9 ô.`);cols.forEach((x,k)=>x==c&&bad.add(k))}}
+ if(!e.length){let tw=0,fl=0;const cp=[],ep=[];
+  CF.forEach((f,i)=>{const o=f.findIndex(k=>'UD'.includes(s[k])),j=CC.indexOf(s[f[o]]+s[f[(o+1)%3]]+s[f[(o+2)%3]]);tw+=o;if(j<0||cp.includes(j)){e.push(`Góc ${CC[i]} có tổ hợp màu không tồn tại hoặc bị trùng (viền đỏ).`);f.forEach(k=>bad.add(k))}cp.push(j)});
+  EF.forEach((f,i)=>{const t=s[f[0]]+s[f[1]];let j=EC.indexOf(t),r=0;if(j<0){j=EC.indexOf(t[1]+t[0]);r=1}fl+=r;if(j<0||ep.includes(j)){e.push(`Cạnh ${EC[i]} có tổ hợp màu không tồn tại hoặc bị trùng (viền đỏ).`);f.forEach(k=>bad.add(k))}ep.push(j)});
+  if(!e.length){const par=a=>a.reduce((x,v,i)=>x+a.slice(0,i).filter(w=>w>v).length,0)%2;
+   if(tw%3)e.push('Có một góc bị xoay sai hướng: hãy đối chiếu lại các góc với Rubik thật.');
+   if(fl%2)e.push('Có một cạnh bị lật sai hướng: hãy đối chiếu lại các cạnh với Rubik thật.');
+   if(!(tw%3)&&!(fl%2)&&par(cp)!=par(ep))e.push('Có hai viên bị đổi chỗ (sai tính chẵn lẻ): hãy kiểm tra lại các ô gần nhau.')}}
+ return{e,bad,s}}
+//L>
+
+const $=id=>document.getElementById(id),CH=['#f4f4f4','#d82c2c','#1fa34a','#f3cf1c','#f5871f','#1e56d6'],CS=CH.map(h=>parseInt(h.slice(1),16)),
+FN={U:'trên',D:'dưới',L:'trái',R:'phải',F:'trước',B:'sau'},POS=[[2,1],[3,2],[2,2],[2,3],[1,2],[4,2]],
+HN=['tâm trắng hướng vào camera, cạnh trên chạm mặt xanh dương','tâm đỏ, mặt trắng ở phía trên','tâm xanh lá, mặt trắng ở phía trên','tâm vàng, cạnh trên chạm mặt xanh lá','tâm cam, mặt trắng ở phía trên','tâm xanh dương, mặt trắng ở phía trên'];
+const ld=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},sv=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+const S0=ld('rb',{});
+let cols=Array.isArray(S0.cols)&&S0.cols.length==54?S0.cols:blank(),sol=S0.sol||[],ix=S0.ix||0,st=[],cur=0,busy=0,play=0,stream=0,ph=0,smp=[],T=ld('rt',[]),t0=0,run=0,wp=0;
+const save=()=>sv('rb',{cols,sol,ix}),edit=()=>{sol=[];ix=0;save()},msg=(t,e)=>{$('msg').textContent=t;$('msg').className=e?'err':''};
+
+/* ===== 3D ===== */
+let ren,sc,cam,root,cubeG,BOX,PL,BLK,MAT;
+function init3(){try{ren=new THREE.WebGLRenderer({antialias:true,alpha:true})}catch(e){return 0}
+ sc=new THREE.Scene();cam=new THREE.PerspectiveCamera(38,1,.1,50);cam.position.z=9.5;
+ root=new THREE.Group();root.rotation.set(.55,-.6,0);sc.add(root);cubeG=new THREE.Group();root.add(cubeG);
+ BOX=new THREE.BoxGeometry(.97,.97,.97);PL=new THREE.PlaneGeometry(.84,.84);BLK=new THREE.MeshBasicMaterial({color:0x14171f});MAT=CS.map(c=>new THREE.MeshBasicMaterial({color:c}));
+ ren.setPixelRatio(Math.min(devicePixelRatio,2));$('stage').append(ren.domElement);return 1}
+const D3=window.THREE?init3():0;
+if(!D3){$('stage').hidden=true;$('nf').hidden=false}
+const R=()=>D3&&ren.render(sc,cam);
+function fit(){if(!D3)return;const e=$('stage'),w=e.clientWidth,h=e.clientHeight;if(!w)return;ren.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();R()}
+const mount=id=>{$(id).append($('stage'));fit()};addEventListener('resize',fit);
+function draw(){if(!D3)return;cubeG.clear();const g={},z=new THREE.Vector3(0,0,1);
+ for(const s of st){const k=s.p+'';let o=g[k];if(!o){o=g[k]=new THREE.Group();o.position.set(...s.p);o.userData.p=s.p;o.add(new THREE.Mesh(BOX,BLK));cubeG.add(o)}
+  const m=new THREE.Mesh(PL,MAT[s.c]);m.position.set(s.n[0]*.505,s.n[1]*.505,s.n[2]*.505);m.quaternion.setFromUnitVectors(z,new THREE.Vector3(...s.n));o.add(m)}R()}
+function anim(m,d,done){if(!D3){turn(st,d>0?m:inv(m));done&&done();return}
+ const[f,k]=pm(m),a=N[f],pv=new THREE.Group(),av=new THREE.Vector3(...a),du=(+$('sp').value)*(k==2?1.4:1),t0=performance.now();busy=1;root.add(pv);
+ cubeG.children.filter(o=>o.userData.p[0]*a[0]+o.userData.p[1]*a[1]+o.userData.p[2]*a[2]==1).forEach(o=>pv.attach(o));
+ (function fr(t){const u=Math.min(1,(t-t0)/du),e=u<.5?2*u*u:1-2*(1-u)**2;pv.quaternion.setFromAxisAngle(av,-Math.PI/2*k*d*e);R();
+  if(u<1)requestAnimationFrame(fr);else{turn(st,d>0?m:inv(m));root.remove(pv);draw();busy=0;done&&done()}})(t0)}
+(function(){if(!D3)return;const P=new Map,s=$('stage'),dist=()=>{const q=[...P.values()];return Math.hypot(q[0][0]-q[1][0],q[0][1]-q[1][1])};
+ s.onpointerdown=e=>{s.setPointerCapture(e.pointerId);P.set(e.pointerId,[e.clientX,e.clientY])};
+ s.onpointermove=e=>{const o=P.get(e.pointerId);if(!o)return;if(P.size==2){const a=dist();P.set(e.pointerId,[e.clientX,e.clientY]);cam.position.z=Math.min(20,Math.max(5,cam.position.z*a/dist()))}
+  else{root.rotation.y+=(e.clientX-o[0])*.01;root.rotation.x+=(e.clientY-o[1])*.01;P.set(e.pointerId,[e.clientX,e.clientY])}R()};
+ s.onpointerup=s.onpointercancel=e=>P.delete(e.pointerId);
+ s.onwheel=e=>{e.preventDefault();cam.position.z=Math.min(20,Math.max(5,cam.position.z*(1+e.deltaY*.001)));R()}})();
+
+/* ===== Điều hướng ===== */
+function go(id){stopCam();play=0;document.querySelectorAll('.s').forEach(s=>s.classList.toggle('on',s.id==id));scrollTo(0,0);$('res').hidden=!sol.length;
+ if(id=='manual')grid();if(id=='timer')tl();if(id=='learn'){mount('m2');st=mk(solved());draw()}}
+function wipe(b){if(!wp){wp=1;b.textContent='Bấm lần nữa để xác nhận xóa';setTimeout(()=>{wp=0;b.textContent='Xóa dữ liệu đã lưu'},3000);return}
+ wp=0;try{localStorage.removeItem('rb');localStorage.removeItem('rt')}catch(e){}cols=blank();sol=[];ix=0;T=[];$('res').hidden=1;b.textContent='Đã xóa dữ liệu'}
+
+/* ===== Nhập màu ===== */
+function grid(bad=new Set()){const n=$('net');n.innerHTML='';
+ POS.forEach(([c,r],f)=>{const d=document.createElement('div');d.className='f';d.style.gridArea=`${r}/${c}`;
+  for(let i=0;i<9;i++){const k=f*9+i,b=document.createElement('button');b.className='k'+(bad.has(k)?' x':'');b.style.background=cols[k]<0?'':CH[cols[k]];b.disabled=i==4;b.setAttribute('aria-label',`Mặt ${L[f]} ô ${i+1}`);
+   b.onclick=()=>{cols[k]=cur;edit();grid();msg('')};d.append(b)}n.append(d)});pal()}
+function pal(){const p=$('pal');p.innerHTML='';CH.forEach((h,c)=>{const b=document.createElement('button');b.style.background=h;b.style.color=c==0||c==3?'#000':'#fff';b.className=c==cur?'on':'';b.textContent=cols.filter(x=>x==c).length;b.title=NM[c];b.onclick=()=>{cur=c;pal()};p.append(b)})}
+const clr=()=>{cols=blank();edit();grid();msg('')},rst=()=>{cols=solved();edit();grid();msg('Đã đặt về trạng thái đã giải.')};
+function scr(){const t=mk(solved());let p=-1;for(let k=0;k<25;k++){let f;do f=Math.random()*6|0;while(f==p);p=f;turn(t,L[f]+['',"'",'2'][Math.random()*3|0])}
+ cols=[...str(t)].map(c=>L.indexOf(c));edit();grid();msg('Đã xáo ngẫu nhiên 25 bước. Bấm Kiểm tra lại và giải.')}
+
+/* ===== Giải ===== */
+async function solveNow(){go('manual');const{e,bad,s}=check();if(e.length){grid(bad);msg('Không thể giải: '+e.join(' ')+' Sửa xong hãy bấm Kiểm tra lại và giải.',1);return}
+ msg('Đang tính toán lời giải. Lần đầu cần vài giây để khởi tạo bảng tra...');await new Promise(r=>setTimeout(r,80));
+ try{if(!window.Cube||!Cube.initSolver)throw'Không tải được thư viện giải (kiểm tra kết nối mạng).';Cube.initSolver();
+  const r=Cube.fromString(s).solve();if(r==null)throw'Bộ giải không tìm được lời giải.';
+  const m=r.trim()?r.trim().split(/\s+/):[],t=mk(cols);m.forEach(x=>turn(t,x));if(str(t)!=SOLVED)throw'Lời giải không vượt qua bước kiểm tra mô phỏng.';
+  sol=m;ix=0;save();msg('');openSolve()}catch(x){msg('Không thể giải: '+(x.message||x),1)}}
+function openSolve(){go('solve');mount('m1');at(ix);draw();ui()}
+const resume=()=>sol.length?openSolve():go('manual');
+function at(n){st=mk(cols);for(let k=0;k<n;k++)turn(st,sol[k]);ix=n}
+function jump(n){if(busy)return;play=0;at(n);draw();ui();save()}
+const ex=m=>`Xoay mặt ${FN[m[0]]} (${m[0]}) ${m[1]=="'"?'90° ngược chiều kim đồng hồ':m[1]=='2'?'180° (nửa vòng)':'90° theo chiều kim đồng hồ'}, nhìn thẳng vào mặt đó.`;
+function ui(){const m=sol[ix];$('pg').textContent=`Đã xong ${ix}/${sol.length} bước`;$('cm').textContent=m?`Bước ${ix+1}/${sol.length}: ${m}`:sol.length?'Đã giải xong!':'Rubik đã ở trạng thái hoàn thành.';$('ce').textContent=m?ex(m):'';
+ const c=$('ch');c.innerHTML='';sol.forEach((m,k)=>{const s=document.createElement('span');s.textContent=m;s.className=k<ix?'d':k==ix?'n':'';s.onclick=()=>jump(k+1);c.append(s)});$('pl').textContent=play?'Tạm dừng':'Phát tự động'}
+function step(d,cb){if(busy)return;const k=d>0?ix:ix-1;if(k<0||k>=sol.length){play=0;ui();return}anim(sol[k],d,()=>{ix+=d;ui();save();cb&&cb()})}
+function toggle(){play=!play;if(play&&ix>=sol.length){at(0);draw()}ui();if(play)tick()}
+function tick(){if(!play)return;if(ix>=sol.length){play=0;ui();return}step(1,()=>setTimeout(tick,150))}
+$('pr').innerHTML=[...L].map(f=>`<button class="b" onclick="if(!busy)anim('${f}'+$('md').value,1)">${f}</button>`).join('');
+
+/* ===== Camera ===== */
+const stopCam=()=>{if(stream){stream.getTracks().forEach(t=>t.stop());stream=0}};
+const hint=()=>{$('sh').textContent=`Mặt ${ph+1}/6: ${NM[ph]} (${L[ph]}): ${HN[ph]}. Căn 9 ô vào khung rồi bấm Chụp.`;$('cap').textContent=`Chụp mặt ${ph+1}/6`};
+async function cap(){const v=$('vid');
+ if(!stream){try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});v.srcObject=stream;await v.play();ph=0;smp=[];hint()}
+  catch(e){stopCam();$('sh').textContent='Không dùng được camera ('+(e.name||'lỗi')+'). Hãy nhập màu thủ công.'}return}
+ const w=v.videoWidth,h=v.videoHeight,q=Math.min(w,h)*.6,x0=(w-q)/2,y0=(h-q)/2,cv=document.createElement('canvas');cv.width=w;cv.height=h;const g=cv.getContext('2d');g.drawImage(v,0,0);const a=[];
+ for(let i=0;i<9;i++){const d=g.getImageData(Math.round(x0+(i%3+.5)*q/3-5),Math.round(y0+((i/3|0)+.5)*q/3-5),10,10).data;let r=0,gg=0,b=0;for(let j=0;j<400;j+=4){r+=d[j];gg+=d[j+1];b+=d[j+2]}a.push([r/100,gg/100,b/100])}
+ smp[ph++]=a;if(ph<6)hint();else finish()}
+function finish(){stopCam();const nz=c=>{const s=c[0]+c[1]+c[2]||1;return[c[0]/s*255,c[1]/s*255,c[2]/s*255,s/3*.3]},ref=smp.map(a=>nz(a[4]));
+ for(let f=0;f<6;f++)for(let i=0;i<9;i++){const c=nz(smp[f][i]);let best=0,bd=1e9;ref.forEach((r,k)=>{const d=r.reduce((x,v,j)=>x+(v-c[j])**2,0);if(d<bd){bd=d;best=k}});cols[f*9+i]=best}
+ for(let f=0;f<6;f++)cols[f*9+4]=f;edit();go('manual');msg('Đã quét xong. Nhận diện màu có thể sai: hãy đối chiếu từng mặt với Rubik thật, sửa ô sai rồi bấm Kiểm tra lại và giải.')}
+
+/* ===== Bấm giờ ===== */
+function tt(){if(!run)return;$('tm').textContent=((performance.now()-t0)/1000).toFixed(2);requestAnimationFrame(tt)}
+function tgl(){if(run){run=0;const s=+((performance.now()-t0)/1000).toFixed(2);T.unshift(s);T=T.slice(0,200);sv('rt',T);$('tm').textContent=s.toFixed(2);tl()}else{t0=performance.now();run=1;tt()}$('tb').textContent=run?'Dừng':'Bắt đầu'}
+function tl(){const n=T.length;$('ts').textContent=n?`Tốt nhất ${Math.min(...T).toFixed(2)} giây, trung bình ${(T.reduce((a,b)=>a+b,0)/n).toFixed(2)} giây, ${n} lần giải`:'Chưa có thành tích nào.';$('tl').innerHTML=T.slice(0,15).map((x,i)=>`<div>Lần ${n-i}: ${x.toFixed(2)} giây</div>`).join('')}
+addEventListener('keydown',e=>{if(e.code=='Space'&&$('timer').classList.contains('on')){e.preventDefault();tgl()}});
+$('res').hidden=!sol.length;
+</script></body></html>
